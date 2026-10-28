@@ -113,6 +113,8 @@ header{position:sticky;top:0;z-index:5;background:var(--dark);color:#fff;padding
 .done p{color:var(--muted);line-height:1.5;margin:0 0 18px}
 .toast{position:fixed;left:50%;top:16px;transform:translateX(-50%) translateY(-20px);background:var(--dark);color:#fff;padding:11px 18px;border-radius:999px;font-weight:700;font-size:13px;z-index:50;opacity:0;transition:all .25s;pointer-events:none;max-width:90vw;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%)}
+.low{position:absolute;left:8px;bottom:8px;background:rgba(184,50,39,.92);color:#fff;font-size:11px;font-weight:800;padding:4px 8px;border-radius:999px}
+.promo{margin:12px 16px 0;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#2a2018,#151210);color:#f3dda4;font-weight:700;font-size:14px;border:1px solid #3a322b}
 .crows{display:flex;flex-direction:column;gap:8px}
 .crow{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:8px 10px}
 .crow.on{border-color:var(--gold);background:#fffaf0}
@@ -136,6 +138,7 @@ header{position:sticky;top:0;z-index:5;background:var(--dark);color:#fff;padding
   <div class="search">🔎<input id="q" type="search" placeholder="Товар номи ёки артикул" oninput="S.q=this.value;render()"></div>
   <div class="chips" id="chips"></div>
 </header>
+<div id="promo"></div>
 <div class="count" id="count"></div>
 <div class="grid" id="grid"></div>
 <button class="bar" id="bar" onclick="openCart()"><span id="barL"></span><span><b id="barR"></b> →</span></button>
@@ -205,6 +208,20 @@ function soldOut(p) {
   return p.stock != null && p.stock < p.minQty;
 }
 
+function stockTotal(p) {
+  if (!p.colors.length) return p.stock;
+  var t = 0;
+  for (var i = 0; i < p.colors.length; i++) { var s = p.colors[i].stock != null ? p.colors[i].stock : p.stock; if (s == null) return null; t += s; }
+  return t;
+}
+function lowStock(p) { var st = stockTotal(p); return (st != null && st >= p.minQty && st <= p.minQty * 10) ? st : 0; }
+function discPct() { var u = DATA.user, s = DATA.shop, p = 0; if (u.firstOrder && s.firstPct) p += s.firstPct; if (u.bonus > 0 && s.refPct) p += s.refPct; return Math.min(p, 50); }
+function renderPromo() {
+  var u = DATA.user, s = DATA.shop, h = '';
+  if (u.firstOrder && s.firstPct) h += '<div class="promo">🎁 Биринчи буюртмангизга −' + s.firstPct + '% чегирма!</div>';
+  if (u.bonus > 0 && s.refPct) h += '<div class="promo">👥 Дўст таклифи бонуси: кейинги буюртмага −' + s.refPct + '%</div>';
+  document.getElementById('promo').innerHTML = h;
+}
 function toast(t) { var el = document.getElementById('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(function () { el.classList.remove('show'); }, 1800); }
 
 function renderChips() {
@@ -232,6 +249,7 @@ function render() {
           (p.bulkQty && p.bulkPrice ? '<span class="badge">🔥 ' + p.bulkQty + '+ арзон</span>' : '') +
           (p.colors.length ? '<span class="dots">' + p.colors.slice(0, 6).map(function (k) { return '<span class="dot" style="background:' + chex(k.name) + '"></span>'; }).join('') + '</span>' : '') +
           (so ? '<div class="sold">Тугаган</div>' : '') +
+          (!so && lowStock(p) ? '<span class="low">⏳ ' + lowStock(p) + ' та қолди</span>' : '') +
         '</div>' +
         '<div class="info"><div class="name">' + esc(p.name) + '</div>' +
           '<div class="price">' + fmt(p.price) + ' <small>/ дона</small></div>' +
@@ -381,6 +399,7 @@ function openCart() {
       '<div class="mini"><button onclick="cq(\'' + esc(l.k) + '\',-1)">' + (l.q <= l.p.minQty ? '🗑' : '−') + '</button><span>' + l.q + '</span><button onclick="cq(\'' + esc(l.k) + '\',1)">+</button></div></div>';
   });
   h += '<div class="total"><span>Жами</span><b>' + fmt(c.total) + '</b></div>';
+  if (discPct()) h += '<div class="hint">✨ Чегирма −' + discPct() + '% билан: <b>' + fmt(Math.round(c.total * (1 - discPct() / 100))) + '</b></div>';
   if (c.total < DATA.shop.min) {
     h += '<div class="warn">⚠️ Минимал буюртма — ' + fmt(DATA.shop.min) + '. Яна ' + fmt(DATA.shop.min - c.total) + 'лик товар қўшинг.</div>' +
       '<button class="btn dark" onclick="closeSheet()">Товар қўшиш</button>';
@@ -410,7 +429,9 @@ function checkout() {
     '<div class="field"><label>Етказиб бериш</label><div class="radio">' +
     DATA.shop.delivery.map(function (d, i) { return '<label><input type="radio" name="dlv" value="' + esc(d) + '"' + (i === 0 ? ' checked' : '') + '>' + esc(d) + '</label>'; }).join('') + '</div></div>' +
     '<div class="field"><label>Изоҳ (ихтиёрий)</label><textarea id="fNote" placeholder="Қўшимча истаклар"></textarea></div>' +
-    '<div class="sum"><div><span>Товарлар</span><span>' + c.L.length + ' хил</span></div><div><b>Жами</b><b>' + fmt(c.total) + '</b></div></div>' +
+    '<div class="sum"><div><span>Товарлар</span><span>' + c.L.length + ' хил</span></div>' +
+    (discPct() ? '<div><span>Сумма</span><span>' + fmt(c.total) + '</span></div><div><span>🎁 Чегирма −' + discPct() + '%</span><span>−' + fmt(Math.round(c.total * discPct() / 100)) + '</span></div>' : '') +
+    '<div><b>Жами</b><b>' + fmt(c.total - Math.round(c.total * discPct() / 100)) + '</b></div></div>' +
     '<div style="height:14px"></div><button class="btn" id="sendBtn" onclick="sendOrder()">✅ Буюртма бериш</button></div>';
   openSheet(h);
 }
@@ -430,6 +451,7 @@ function sendOrder() {
     .then(function (r) {
     if (!r || !r.ok) return fail(r && r.error);
     S.cart = {}; save(); render();
+    DATA.user.firstOrder = false; if (DATA.user.bonus > 0) DATA.user.bonus--; renderPromo();
     openSheet('<div class="grab"></div><div class="done"><div class="ic">🎉</div><h2>Буюртма №' + r.no + ' қабул қилинди!</h2>' +
       '<p>Менежеримиз тез орада сиз билан боғланади.<br>Буюртма маълумотлари ботга ҳам юборилди.</p>' +
       '<button class="btn" onclick="closeSheet()">Дўконга қайтиш</button>' +
@@ -439,7 +461,7 @@ function sendOrder() {
 }
 
 document.getElementById('sub').textContent = 'Энг арзон нархлар · Минимал буюртма ' + fmt(DATA.shop.min);
-renderChips(); render();
+renderPromo(); renderChips(); render();
 </script>
 </body>
 </html>
