@@ -427,13 +427,24 @@ function checkout() {
     '<div class="field"><label>Телефон</label><input id="fPhone" type="tel" value="' + esc(u.phone) + '" placeholder="+998 90 123 45 67"></div>' +
     '<div class="field"><label>Шаҳар / туман ва манзил</label><input id="fAddr" value="' + esc(u.addr) + '" placeholder="Масалан: Тошкент, Чилонзор 9-мавзе"></div>' +
     '<div class="field"><label>Етказиб бериш</label><div class="radio">' +
-    DATA.shop.delivery.map(function (d, i) { return '<label><input type="radio" name="dlv" value="' + esc(d) + '"' + (i === 0 ? ' checked' : '') + '>' + esc(d) + '</label>'; }).join('') + '</div></div>' +
+    DATA.shop.delivery.map(function (d, i) { return '<label><input type="radio" name="dlv" onchange="updSum()" value="' + esc(d) + '"' + (i === 0 ? ' checked' : '') + '>' + esc(d) + (fee(i) ? '<span style="margin-left:auto;color:var(--gold);font-weight:800;white-space:nowrap">+' + fmt(fee(i)) + '</span>' : '') + '</label>'; }).join('') + '</div></div>' +
     '<div class="field"><label>Изоҳ (ихтиёрий)</label><textarea id="fNote" placeholder="Қўшимча истаклар"></textarea></div>' +
-    '<div class="sum"><div><span>Товарлар</span><span>' + c.L.length + ' хил</span></div>' +
-    (discPct() ? '<div><span>Сумма</span><span>' + fmt(c.total) + '</span></div><div><span>🎁 Чегирма −' + discPct() + '%</span><span>−' + fmt(Math.round(c.total * discPct() / 100)) + '</span></div>' : '') +
-    '<div><b>Жами</b><b>' + fmt(c.total - Math.round(c.total * discPct() / 100)) + '</b></div></div>' +
+    '<div class="sum" id="sumBox">' + sumHtml(0) + '</div>' +
     '<div style="height:14px"></div><button class="btn" id="sendBtn" onclick="sendOrder()">✅ Буюртма бериш</button></div>';
   openSheet(h);
+}
+function fee(i) { var f = DATA.shop.deliveryFee || []; return Number(f[i]) || 0; }
+function sumHtml(i) {
+  var c = cartLines(), d = Math.round(c.total * discPct() / 100), f = fee(i);
+  return '<div><span>Товарлар</span><span>' + c.L.length + ' хил</span></div>' +
+    ((d || f) ? '<div><span>Сумма</span><span>' + fmt(c.total) + '</span></div>' : '') +
+    (d ? '<div><span>🎁 Чегирма −' + discPct() + '%</span><span>−' + fmt(d) + '</span></div>' : '') +
+    (f ? '<div><span>🚚 Етказиш</span><span>+' + fmt(f) + '</span></div>' : '') +
+    '<div><b>Жами</b><b>' + fmt(c.total - d + f) + '</b></div>';
+}
+function updSum() {
+  var r = document.querySelectorAll('input[name=dlv]');
+  for (var i = 0; i < r.length; i++) if (r[i].checked) { document.getElementById('sumBox').innerHTML = sumHtml(i); return; }
 }
 function sendOrder() {
   var phone = document.getElementById('fPhone').value, addr = document.getElementById('fAddr').value.trim();
