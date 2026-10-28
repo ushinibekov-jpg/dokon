@@ -399,6 +399,7 @@ function openCart() {
       '<div class="mini"><button onclick="cq(\'' + esc(l.k) + '\',-1)">' + (l.q <= l.p.minQty ? '🗑' : '−') + '</button><span>' + l.q + '</span><button onclick="cq(\'' + esc(l.k) + '\',1)">+</button></div></div>';
   });
   h += '<div class="total"><span>Жами</span><b>' + fmt(c.total) + '</b></div>';
+  if (c.total >= DATA.shop.min) h += freeHint();
   if (discPct()) h += '<div class="hint">✨ Чегирма −' + discPct() + '% билан: <b>' + fmt(Math.round(c.total * (1 - discPct() / 100))) + '</b></div>';
   if (c.total < DATA.shop.min) {
     h += '<div class="warn">⚠️ Минимал буюртма — ' + fmt(DATA.shop.min) + '. Яна ' + fmt(DATA.shop.min - c.total) + 'лик товар қўшинг.</div>' +
@@ -427,19 +428,35 @@ function checkout() {
     '<div class="field"><label>Телефон</label><input id="fPhone" type="tel" value="' + esc(u.phone) + '" placeholder="+998 90 123 45 67"></div>' +
     '<div class="field"><label>Шаҳар / туман ва манзил</label><input id="fAddr" value="' + esc(u.addr) + '" placeholder="Масалан: Тошкент, Чилонзор 9-мавзе"></div>' +
     '<div class="field"><label>Етказиб бериш</label><div class="radio">' +
-    DATA.shop.delivery.map(function (d, i) { return '<label><input type="radio" name="dlv" onchange="updSum()" value="' + esc(d) + '"' + (i === 0 ? ' checked' : '') + '>' + esc(d) + (fee(i) ? '<span style="margin-left:auto;color:var(--gold);font-weight:800;white-space:nowrap">+' + fmt(fee(i)) + '</span>' : '') + '</label>'; }).join('') + '</div></div>' +
+    DATA.shop.delivery.map(function (d, i) { return '<label><input type="radio" name="dlv" onchange="updSum()" value="' + esc(d) + '"' + (i === 0 ? ' checked' : '') + '>' + esc(d) + dlvTag(i) + '</label>'; }).join('') + '</div>' + freeHint() + '</div>' +
     '<div class="field"><label>Изоҳ (ихтиёрий)</label><textarea id="fNote" placeholder="Қўшимча истаклар"></textarea></div>' +
     '<div class="sum" id="sumBox">' + sumHtml(0) + '</div>' +
     '<div style="height:14px"></div><button class="btn" id="sendBtn" onclick="sendOrder()">✅ Буюртма бериш</button></div>';
   openSheet(h);
 }
-function fee(i) { var f = DATA.shop.deliveryFee || []; return Number(f[i]) || 0; }
+function freeAt(i) { var f = DATA.shop.freeFrom || []; return Number(f[i]) || 0; }
+function goodsNow() { var c = cartLines(); return c.total - Math.round(c.total * discPct() / 100); }
+function fee(i, goods) { var t = freeAt(i); if (t && goods >= t) return 0; var f = DATA.shop.deliveryFee || []; return Number(f[i]) || 0; }
+function dlvTag(i) {
+  var g = goodsNow(), f = fee(i, g), t = freeAt(i), st = '<span style="margin-left:auto;color:var(--gold);font-weight:800;white-space:nowrap">';
+  if (f) return st + '+' + fmt(f) + '</span>';
+  if (t && g >= t) return st + 'Бепул ✅</span>';
+  return '';
+}
+function freeHint() {
+  var g = goodsNow(), L = [];
+  DATA.shop.delivery.forEach(function (d, i) {
+    var t = freeAt(i);
+    if (t && g < t) L.push('💡 Яна <b>' + fmt(t - g) + '</b>лик товар қўшсангиз — ' + esc(d.replace(/^\S+\s/, '')) + ' бепул');
+  });
+  return L.length ? '<div class="hint">' + L.join('<br>') + '</div>' : '';
+}
 function sumHtml(i) {
-  var c = cartLines(), d = Math.round(c.total * discPct() / 100), f = fee(i);
+  var c = cartLines(), d = Math.round(c.total * discPct() / 100), f = fee(i, c.total - d), fr = freeAt(i) && (c.total - d) >= freeAt(i);
   return '<div><span>Товарлар</span><span>' + c.L.length + ' хил</span></div>' +
     ((d || f) ? '<div><span>Сумма</span><span>' + fmt(c.total) + '</span></div>' : '') +
     (d ? '<div><span>🎁 Чегирма −' + discPct() + '%</span><span>−' + fmt(d) + '</span></div>' : '') +
-    (f ? '<div><span>🚚 Етказиш</span><span>+' + fmt(f) + '</span></div>' : '') +
+    (f ? '<div><span>🚚 Етказиш</span><span>+' + fmt(f) + '</span></div>' : (fr ? '<div><span>🚚 Етказиш</span><span>Бепул ✅</span></div>' : '')) +
     '<div><b>Жами</b><b>' + fmt(c.total - d + f) + '</b></div>';
 }
 function updSum() {
