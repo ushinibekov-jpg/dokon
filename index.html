@@ -121,6 +121,12 @@ header{position:sticky;top:0;z-index:5;background:var(--dark);color:#fff;padding
 .crow.out{opacity:.5}
 .cname{display:flex;align-items:center;gap:10px;background:none;border:0;padding:4px 0;text-align:left;color:var(--ink);flex:1;min-width:0}
 .cname .dot{width:20px;height:20px;flex:none}
+.cth{width:58px;height:58px;flex:none;border-radius:12px;background:#efe7da center/cover no-repeat;border:2px solid transparent;position:relative}
+.cth.no{display:flex;align-items:center;justify-content:center}
+.cth.no .dot{width:22px;height:22px}
+.crow.view .cth{border-color:var(--gold)}
+.crow.view{box-shadow:0 0 0 2px #f3dda4 inset}
+.camhint{font-size:12px;color:var(--muted);font-weight:600;margin:-2px 0 8px}
 .cname b{display:block;font-size:14px}
 .cname small{display:block;font-size:12px;color:var(--muted);font-weight:600}
 .crow .mini span{min-width:40px}
@@ -318,12 +324,13 @@ function renderP(open) {
     (p.bulkQty && p.bulkPrice ? '<div class="tier' + (u === p.bulkPrice ? ' on' : '') + '"><div class="t">🔥 ' + p.bulkQty + '+ дона</div><div class="v">' + fmt(p.bulkPrice) + '</div></div>' : '') + '</div>';
   if (p.colors.length) {
     h += '<div class="lbl">🎨 Рангларни танланг — ҳар биридан ' + p.minQty + ' донадан</div><div class="crows">';
-    var rows = p.colors.map(function (k, i) { return { c: String(i), name: k.name, dot: chex(k.name) }; });
+    var rows = p.colors.map(function (k, i) { return { c: String(i), name: k.name, dot: chex(k.name), img: k.img || '' }; });
+    if (p.colors.some(function (k) { return k.img; })) h += '<div class="camhint">👆 Рангни босинг — расми юқорида катта кўринади</div>';
     rows.push({ c: 'x', name: '🎨 Аралаш', dot: '' , mix: true });
     rows.forEach(function (r) {
       var st = stockOf(p, r.c), out = st != null && st < p.minQty, q = qs[r.c] || 0;
-      h += '<div class="crow' + (q ? ' on' : '') + (out ? ' out' : '') + '"><button class="cname" onclick="viewC(\'' + r.c + '\')">' +
-        (r.mix ? '' : '<span class="dot" style="background:' + r.dot + '"></span>') +
+      h += '<div class="crow' + (q ? ' on' : '') + (out ? ' out' : '') + (S.cur.view === r.c && r.img ? ' view' : '') + '"><button class="cname" onclick="viewC(\'' + r.c + '\')">' +
+        (r.mix ? '' : (r.img ? '<span class="cth" style="' + bg(r.img) + '"></span>' : '<span class="cth no"><span class="dot" style="background:' + r.dot + '"></span></span>')) +
         '<span><b>' + esc(r.name) + '</b><small>' + (out ? 'Тугаган' : (r.mix ? 'Рангларни ўзимиз аралаштирамиз' : (st != null ? 'Омборда: ' + st + ' дона' : 'Бор'))) + '</small></span></button>' +
         (out ? '' : '<div class="mini"><button onclick="cqty(\'' + r.c + '\',-1)">−</button><span>' + q + '</span><button onclick="cqty(\'' + r.c + '\',1)">+</button></div>') + '</div>';
     });
@@ -345,7 +352,7 @@ function renderP(open) {
     (S.cur.had ? (tot ? '✅ Саватни янгилаш' : '🗑 Саватдан олиб ташлаш') : (tot ? '🛒 Саватга қўшиш' : 'Рангни танланг')) + '</button></div>';
   if (open) openSheet(h); else { var sh = document.getElementById('sheet'), y = sh.scrollTop; sh.innerHTML = h; sh.scrollTop = y; }
 }
-function viewC(c) { if (c !== 'x' && S.cur.p.colors[+c] && S.cur.p.colors[+c].img) { S.cur.view = c; renderP(false); } }
+function viewC(c) { if (c !== 'x' && S.cur.p.colors[+c] && S.cur.p.colors[+c].img) { S.cur.view = c; renderP(false); var sh = document.getElementById('sheet'); if (sh.scrollTo) sh.scrollTo({ top: 0, behavior: 'smooth' }); else sh.scrollTop = 0; } }
 function cqty(c, d) {
   var p = S.cur.p, q = S.cur.qs[c] || 0, n;
   if (d > 0) n = q === 0 ? p.minQty : q + p.minQty;
