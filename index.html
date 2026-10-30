@@ -130,6 +130,29 @@ header{position:sticky;top:0;z-index:5;background:var(--dark);color:#fff;padding
 .cname b{display:block;font-size:14px}
 .cname small{display:block;font-size:12px;color:var(--muted);font-weight:600}
 .crow .mini span{min-width:40px}
+
+/* ===== Компьютер (катта экран) ===== */
+header{padding-top:calc(14px + var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px))}
+@media(min-width:900px){
+  html,body{font-size:16px}
+  header{padding-left:max(24px,calc((100vw - 1240px)/2));padding-right:max(24px,calc((100vw - 1240px)/2))}
+  .brand{font-size:34px}.sub{font-size:14px}
+  .search{max-width:560px}
+  .chips{margin:0;padding:14px 0 16px;flex-wrap:wrap}
+  .chip{font-size:14px;padding:9px 16px}
+  #promo,.count,.grid{max-width:1240px;margin-left:auto;margin-right:auto}
+  .count{padding:18px 24px 0;font-size:14px}
+  .grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;padding:14px 24px 24px}
+  .name{font-size:15px}.price{font-size:18px}
+  .card{transition:transform .15s,box-shadow .15s}
+  .card:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(60,40,10,.14)}
+  .bar{left:50%;right:auto;transform:translateX(-50%);width:min(560px,90vw)}
+  .sheet{top:4vh;bottom:auto;max-height:92vh;border-radius:22px;max-width:980px;transform:translateY(110vh)}
+  .sheet.show{transform:none}
+  .sheet .grab{display:none}
+  .sheet .hero{aspect-ratio:auto;height:46vh;background-size:contain;background-color:#fff;margin-top:0;border-radius:22px 22px 0 0}
+}
+@media(min-width:1300px){.grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -163,20 +186,35 @@ var DATA;
 (function () {
   var tg = window.Telegram && Telegram.WebApp;
   try { if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#151210'); tg.setBackgroundColor('#f6f2ea'); } } catch (e) {}
+  // Компьютерда (Telegram Desktop / macOS / Web) дўкон бутун экранга очилади
+  try { if (tg && /^(tdesktop|macos|web|weba|webk|unigram)$/.test(tg.platform) && tg.requestFullscreen && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0')) tg.requestFullscreen(); } catch (e) {}
   var q = new URLSearchParams(location.search), uid = q.get('uid') || '', sig = q.get('sig') || '';
   var T = document.getElementById('loadingText');
   if (!uid) { T.innerHTML = 'Дўконни Telegram бот орқали очинг:<br><a style="color:#e3c27a" href="https://t.me/' + BOT + '">@' + BOT + '</a>'; return; }
+  var CK = 'bj_data_' + uid, cached = null;
+  function boot(d) {
+    DATA = d;
+    var s = document.createElement('script');
+    s.text = document.getElementById('app').textContent;
+    document.body.appendChild(s);
+    document.getElementById('loading').style.display = 'none';
+  }
+  // Олдинги каталог телефонда сақланган бўлса — дўкон дарҳол очилади, янгиси орқада юкланади
+  try { cached = JSON.parse(localStorage.getItem(CK) || 'null'); } catch (e) {}
+  if (cached && cached.user && cached.user.sig === sig && cached.products) {
+    var early = function () { if (!DATA) { try { boot(cached); } catch (e) { DATA = null; } } };
+    if (document.getElementById('app')) early(); else document.addEventListener('DOMContentLoaded', early);
+  }
+  setTimeout(function () { if (!DATA) T.innerHTML = 'Юкланмоқда…<br><small style="opacity:.7;font-weight:600">Биринчи очилишда бир оз вақт олади</small>'; }, 3000);
   fetch(API + '?api=catalog&uid=' + encodeURIComponent(uid) + '&sig=' + encodeURIComponent(sig))
     .then(function (r) { return r.json(); })
     .then(function (d) {
       if (!d || d.error) throw new Error(d && d.error);
-      DATA = d;
-      var s = document.createElement('script');
-      s.text = document.getElementById('app').textContent;
-      document.body.appendChild(s);
-      document.getElementById('loading').style.display = 'none';
+      try { localStorage.setItem(CK, JSON.stringify(d)); } catch (e) {}
+      if (DATA && window.refreshData) refreshData(d); else boot(d);
     })
     .catch(function (e) {
+      if (DATA) return;
       T.innerHTML = String(e && e.message) === 'auth'
         ? 'Ҳавола эскирган. Ботда «🛍 Дўконни очиш» тугмасини қайта босинг.'
         : '⚠️ Юклаб бўлмади.<br>Интернетни текшириб, дўконни қайта очинг.';
@@ -497,6 +535,13 @@ function sendOrder() {
 
 document.getElementById('sub').textContent = 'Энг арзон нархлар · Минимал буюртма ' + fmt(DATA.shop.min);
 renderPromo(); renderChips(); render();
+window.refreshData = function (d) {
+  DATA = d; P = d.products; BY = {};
+  P.forEach(function (p) { BY[p.sku] = p; });
+  if (S.cat && DATA.cats.indexOf(S.cat) < 0) S.cat = '';
+  document.getElementById('sub').textContent = 'Энг арзон нархлар · Минимал буюртма ' + fmt(DATA.shop.min);
+  renderPromo(); renderChips(); render();
+};
 </script>
 </body>
 </html>
