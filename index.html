@@ -130,6 +130,9 @@ header{position:sticky;top:0;z-index:5;background:var(--dark);color:#fff;padding
 .cname b{display:block;font-size:14px}
 .cname small{display:block;font-size:12px;color:var(--muted);font-weight:600}
 .crow .mini span{min-width:40px}
+.skut{display:inline-block;background:#151210;color:#f3dda4;font-size:11px;font-weight:800;padding:2px 7px;border-radius:7px;margin-right:6px;vertical-align:1px;letter-spacing:.3px}
+.h1 .skut{font-size:14px;padding:3px 9px;vertical-align:3px}
+.ldot{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:linear-gradient(135deg,#f3dda4,#c99a3c);color:#1b1714;font-weight:800;line-height:1;flex:none}
 
 /* ===== Компьютер (катта экран) ===== */
 header{padding-top:calc(14px + var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px))}
@@ -238,6 +241,13 @@ function bg(u) { return u ? "background-image:url('" + String(u).replace(/'/g, '
 var CMAP = { 'тилла': '#d4af37', 'олтин': '#d4af37', 'gold': '#d4af37', 'кумуш': '#c9ccd1', 'silver': '#c9ccd1', 'қора': '#222', 'оқ': '#fafafa', 'роз': '#e7b2a0', 'қизил': '#d63031', 'кўк': '#2f6fd6', 'мовий': '#4aa3df', 'яшил': '#2e9d5b', 'пушти': '#f39ac0', 'бинафша': '#8e5cd9', 'сариқ': '#f2c94c', 'жигар': '#8b5a2b', 'кулранг': '#9aa0a6', 'марварид': '#f3eee4' };
 function chex(n) { n = String(n).toLowerCase(); for (var k in CMAP) if (n.indexOf(k) >= 0) return CMAP[k]; return 'conic-gradient(#f39ac0,#f2c94c,#4aa3df,#8e5cd9,#f39ac0)'; }
 
+// Вариантлар фақат ҳарфлардан иборат бўлса (A, B, C…) — «ҳарф» деб кўрсатилади
+function isLetters(p) { return p.colors.length > 0 && p.colors.every(function (k) { return /^[A-Za-zА-Яа-яЁёЎўҚқҒғҲҳ]{1,2}$/.test(String(k.name).trim()); }); }
+function vw(p, a, b) { return isLetters(p) ? a : b; }
+function letterDot(n, sz) { return '<span class="ldot" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + Math.round(sz * .55) + 'px">' + esc(String(n).trim().toUpperCase()) + '</span>'; }
+// Товар номи олдида артикул: «P007 · Узук» (номдаги такрорий артикул олиб ташланади)
+function pname(p) { var n = String(p.name || '').replace(new RegExp('\\s*' + p.sku + '\\s*$', 'i'), '').trim(); return n || p.sku; }
+function skuTag(p) { return '<span class="skut">' + esc(p.sku) + '</span>'; }
 function isColor(c) { return c !== '' && c !== 'x' && c != null; }
 function stockOf(p, c) { if (isColor(c)) { var k = p.colors[+c]; if (k && k.stock != null) return k.stock; } return p.stock; }
 function clamp(p, q, c) {
@@ -294,11 +304,11 @@ function render() {
       return '<div class="card" onclick="openP(\'' + esc(p.sku) + '\')">' +
         '<div class="img' + (p.img ? '' : ' no') + '" style="' + bg(p.img) + '">' +
           (p.bulkQty && p.bulkPrice ? '<span class="badge">🔥 ' + p.bulkQty + '+ арзон</span>' : '') +
-          (p.colors.length ? '<span class="dots">' + p.colors.slice(0, 6).map(function (k) { return '<span class="dot" style="background:' + chex(k.name) + '"></span>'; }).join('') + '</span>' : '') +
+          (p.colors.length ? '<span class="dots">' + (isLetters(p) ? p.colors.slice(0, 5).map(function (k) { return letterDot(k.name, 16); }).join('') + (p.colors.length > 5 ? '<b style="font-size:11px;padding:0 2px">+' + (p.colors.length - 5) + '</b>' : '') : p.colors.slice(0, 6).map(function (k) { return '<span class="dot" style="background:' + chex(k.name) + '"></span>'; }).join('')) + '</span>' : '') +
           (so ? '<div class="sold">Тугаган</div>' : '') +
           (!so && lowStock(p) ? '<span class="low">⏳ ' + lowStock(p) + ' та қолди</span>' : '') +
         '</div>' +
-        '<div class="info"><div class="name">' + esc(p.name) + '</div>' +
+        '<div class="info"><div class="name">' + skuTag(p) + esc(pname(p)) + '</div>' +
           '<div class="price">' + fmt(p.price) + ' <small>/ дона</small></div>' +
           (p.bulkQty && p.bulkPrice ? '<div class="bulk">' + p.bulkQty + '+ дона: ' + fmt(p.bulkPrice) + '</div>' : '') +
           '<div class="min">📦 ' + p.minQty + ' донадан</div>' +
@@ -359,23 +369,24 @@ function curTotal() { var t = 0; for (var c in S.cur.qs) t += S.cur.qs[c] || 0; 
 function renderP(open) {
   var p = S.cur.p, qs = S.cur.qs, tot = curTotal(), u = unit(p, tot), img = imgOf(p, S.cur.view);
   var h = '<div class="grab"></div><div class="hero' + (img ? '' : ' no') + '" style="' + bg(img) + '"><button class="x" onclick="closeSheet()">✕</button></div><div class="pad">' +
-    '<h1 class="h1">' + esc(p.name) + '</h1><div class="sku">Артикул: ' + esc(p.sku) + '</div>' +
+    '<h1 class="h1">' + skuTag(p) + esc(pname(p)) + '</h1>' +
     (p.desc ? '<p class="desc">' + esc(p.desc) + '</p>' : '') +
     '<div class="tiers"><div class="tier' + (u === p.price ? ' on' : '') + '"><div class="t">' + p.minQty + '+ дона</div><div class="v">' + fmt(p.price) + '</div></div>' +
     (p.bulkQty && p.bulkPrice ? '<div class="tier' + (u === p.bulkPrice ? ' on' : '') + '"><div class="t">🔥 ' + p.bulkQty + '+ дона</div><div class="v">' + fmt(p.bulkPrice) + '</div></div>' : '') + '</div>';
   if (p.colors.length) {
-    h += '<div class="lbl">🎨 Рангларни танланг — ҳар биридан ' + p.minQty + ' донадан</div><div class="crows">';
+    h += '<div class="lbl">' + vw(p, '🔤 Ҳарфларни танланг', '🎨 Рангларни танланг') + ' — ҳар биридан ' + p.minQty + ' донадан</div><div class="crows">';
     var rows = p.colors.map(function (k, i) { return { c: String(i), name: k.name, dot: chex(k.name), img: k.img || '' }; });
-    if (p.colors.some(function (k) { return k.img; })) h += '<div class="camhint">👆 Рангни босинг — расми юқорида катта кўринади</div>';
+    if (p.colors.some(function (k) { return k.img; })) h += '<div class="camhint">👆 ' + vw(p, 'Ҳарфни', 'Рангни') + ' босинг — расми юқорида катта кўринади</div>';
     rows.push({ c: 'x', name: '🎨 Аралаш', dot: '' , mix: true });
+    var LT = isLetters(p);
     rows.forEach(function (r) {
       var st = stockOf(p, r.c), out = st != null && st < p.minQty, q = qs[r.c] || 0;
       h += '<div class="crow' + (q ? ' on' : '') + (out ? ' out' : '') + (S.cur.view === r.c && r.img ? ' view' : '') + '"><button class="cname" onclick="viewC(\'' + r.c + '\')">' +
-        (r.mix ? '' : (r.img ? '<span class="cth" style="' + bg(r.img) + '"></span>' : '<span class="cth no"><span class="dot" style="background:' + r.dot + '"></span></span>')) +
-        '<span><b>' + esc(r.name) + '</b><small>' + (out ? 'Тугаган' : (r.mix ? 'Рангларни ўзимиз аралаштирамиз' : (st != null ? 'Омборда: ' + st + ' дона' : 'Бор'))) + '</small></span></button>' +
+        (r.mix ? '' : (r.img ? '<span class="cth" style="' + bg(r.img) + '"></span>' : '<span class="cth no">' + (LT ? letterDot(r.name, 40) : '<span class="dot" style="background:' + r.dot + '"></span>') + '</span>')) +
+        '<span><b>' + esc(r.name) + '</b><small>' + (out ? 'Тугаган' : (r.mix ? vw(p, 'Ҳарфларни ўзимиз аралаштирамиз', 'Рангларни ўзимиз аралаштирамиз') : (st != null ? 'Омборда: ' + st + ' дона' : 'Бор'))) + '</small></span></button>' +
         (out ? '' : '<div class="mini"><button onclick="cqty(\'' + r.c + '\',-1)">−</button><span>' + q + '</span><button onclick="cqty(\'' + r.c + '\',1)">+</button></div>') + '</div>';
     });
-    h += '</div><div class="quick"><button onclick="allPlus()">➕ Ҳар бир рангдан ' + p.minQty + ' тадан</button>' + (tot ? '<button onclick="allZero()">Тозалаш</button>' : '') + '</div>';
+    h += '</div><div class="quick"><button onclick="allPlus()">➕ Ҳар бир ' + vw(p, 'ҳарфдан ', 'рангдан ') + p.minQty + ' тадан</button>' + (tot ? '<button onclick="allZero()">Тозалаш</button>' : '') + '</div>';
   } else {
     var st0 = stockOf(p, ''), out0 = st0 != null && st0 < p.minQty;
     if (out0) h += '<div class="warn">⛔️ Ҳозирча тугаган</div>';
@@ -390,7 +401,7 @@ function renderP(open) {
   if (p.bulkQty && p.bulkPrice && tot > 0 && tot < p.bulkQty) h += '<div class="hint">💡 Жами яна ' + (p.bulkQty - tot) + ' дона қўшсангиз, нарх ' + fmt(p.bulkPrice) + ' бўлади</div>';
   h += '<div class="total"><span>Жами: ' + tot + ' дона</span><b>' + fmt(u * tot) + '</b></div>' +
     '<button class="btn" onclick="applyCart()"' + (tot || S.cur.had ? '' : ' disabled') + '>' +
-    (S.cur.had ? (tot ? '✅ Саватни янгилаш' : '🗑 Саватдан олиб ташлаш') : (tot ? '🛒 Саватга қўшиш' : 'Рангни танланг')) + '</button></div>';
+    (S.cur.had ? (tot ? '✅ Саватни янгилаш' : '🗑 Саватдан олиб ташлаш') : (tot ? '🛒 Саватга қўшиш' : vw(p, 'Ҳарфни танланг', 'Рангни танланг'))) + '</button></div>';
   if (open) openSheet(h); else { var sh = document.getElementById('sheet'), y = sh.scrollTop; sh.innerHTML = h; sh.scrollTop = y; }
 }
 function viewC(c) { if (c !== 'x' && S.cur.p.colors[+c] && S.cur.p.colors[+c].img) { S.cur.view = c; renderP(false); var sh = document.getElementById('sheet'); if (sh.scrollTo) sh.scrollTo({ top: 0, behavior: 'smooth' }); else sh.scrollTop = 0; } }
@@ -429,7 +440,7 @@ function applyCart() {
   });
   var had = S.cur.had;
   save(); closeSheet(); render();
-  toast(n ? (had ? '✅ Сават янгиланди' : '✅ Саватга қўшилди' + (p.colors.length ? ': ' + n + ' хил ранг' : '')) : 'Саватдан олиб ташланди');
+  toast(n ? (had ? '✅ Сават янгиланди' : '✅ Саватга қўшилди' + (p.colors.length ? ': ' + n + ' хил ' + vw(p, 'ҳарф', 'ранг') : '')) : 'Саватдан олиб ташланди');
 }
 
 // ---------- Сават ----------
@@ -442,7 +453,7 @@ function openCart() {
   c.L.forEach(function (l) {
     var img = imgOf(l.p, l.c);
     h += '<div class="line"><div class="th' + (img ? '' : ' no') + '" style="' + bg(img) + '"></div><div class="mid">' +
-      '<div class="nm">' + esc(l.p.name) + '</div><div class="sm">' + (l.color ? esc(l.color) + ' · ' : '') + fmt(l.u) + ' / дона</div>' +
+      '<div class="nm">' + skuTag(l.p) + esc(pname(l.p)) + '</div><div class="sm">' + (l.color ? esc(l.color) + ' · ' : '') + fmt(l.u) + ' / дона</div>' +
       '<div class="ls">' + fmt(l.sum) + '</div></div>' +
       '<div class="mini"><button onclick="cq(\'' + esc(l.k) + '\',-1)">' + (l.q <= l.p.minQty ? '🗑' : '−') + '</button><span>' + l.q + '</span><button onclick="cq(\'' + esc(l.k) + '\',1)">+</button></div></div>';
   });
